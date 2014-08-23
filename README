@@ -1,0 +1,49 @@
+bearmon
+=======
+
+bearmon is a simple server monitoring tool designed to require minimal configuration.
+
+* Checks each define one monitoring instance, for example a URL to make sure is OK.
+* A contact is a communication instance, for example an email address or a phone number (for SMS).
+* Alerts connect checks with contacts, so that the contact will be alerted when the check goes offline.
+
+Installation
+------------
+
+Create a database from the schema defined in `install.sql`.
+
+Setup
+-----
+
+First, look at config.php and configure database, mail, and other settings.
+
+Define a check. The one below will make sure the URL contains the given substring.
+
+    INSERT INTO checks (name, type, data) VALUES ('example.com', 'http_contains', 'url=http://example.com/critical.php&substring=GOOD');
+
+Define a contact.
+
+    INSERT INTO contacts (type, data) VALUES ('email', 'email=admin@example.com');
+
+Define an alert.
+
+    INSERT INTO alerts (check_id, contact_id) VALUES (1, 1);
+
+Now, run bearmon:
+
+    php monitor.php
+
+Note: all "data" values above use URL encoding scheme to encode key-value pairs.
+So, if your URL contains ampersand (&) symbols, they should be encoded as %26 in the database.
+See monitor_decode in common.php for how the data is decoded.
+
+Multi-source monitoring
+---------------------
+
+bearmon can be configured to monitor services from multiple sources.
+This way, if the source crashes, you don't get extraneous notifications.
+
+There are two steps to setting this up. You can do the first step without doing the second and get a decent system.
+
+* Run monitor.php on multiple slaves with the same database setup.
+* Configure your MySQL to run in clustered/HA mode.
