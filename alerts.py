@@ -1,3 +1,5 @@
+import util
+
 def email(data, context):
 	'''
 	Sends an email to target with the given parameters.
@@ -7,7 +9,7 @@ def email(data, context):
 	context['title']: email subject
 	context['message']: email body (plaintext)
 	'''
-	global config
+	from config import config
 
 	if 'email' not in data:
 		util.die('alerts.email: missing email')
@@ -35,14 +37,14 @@ def email(data, context):
 	try:
 		msg = MIMEText(context['message'], 'plain')
 		msg['From'] = from_address
-		mail['To'] = to_address
+		msg['To'] = to_address
 		msg['Subject'] = context['title']
 
-		conn.sendmail(from_address, to_address, msg)
+		conn.sendmail(from_address, to_address, msg.as_string())
 	finally:
 		conn.close()
 
-def alert_sms_twilio(data, context):
+def sms_twilio(data, context):
 	'''
 	Sends an SMS message via Twilio to the given number.
 	The message is "[title] message"
@@ -53,7 +55,7 @@ def alert_sms_twilio(data, context):
 	context['title']: used in creating SMS message
 	context['message']: used in creating SMS message
 	'''
-	global config
+	from config import config
 	from twilio.rest import TwilioRestClient
 
 	if 'number' not in data:
@@ -69,7 +71,7 @@ def alert_sms_twilio(data, context):
 
 	message = client.messages.create(body = sms_message, to = data['number'], from_ = config_target['twilio_number'])
 
-def alert_http(data, context):
+def http(data, context):
 	'''
 	Notifies a web hook over HTTP regarding alert.
 	All context parameters are sent, via GET.
@@ -82,9 +84,9 @@ def alert_http(data, context):
 
 	import urllib
 	import checks
-	url = data['url'] + '?' + urllib.urlencode(data)
+	url = data['url'] + '?' + urllib.urlencode(context)
 
-	result = checks.http_helper({'url' => url})
+	result = checks.http_helper({'url': url})
 
 	if result['status'] == 'fail' and 'message' in result:
 		print "alert_http: error: " + result['message']

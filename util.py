@@ -1,3 +1,8 @@
+import threading
+
+die_lock = threading.Lock()
+die = False
+
 def uid(length):
 	import random
 	characters = "0123456789abcdefghijklmnopqrstuvwxyz"
@@ -6,7 +11,7 @@ def uid(length):
 def decode(data):
 	import urllib
 
-	array = []
+	array = {}
 	parts = data.split('&')
 
 	for part in parts:
@@ -19,10 +24,15 @@ def decode(data):
 
 	return array
 
-def die(message):
-	print message
-	import sys
-	sys.exit(-1)
+def die(message = None):
+	global die
+
+	with die_lock:
+		if message:
+			die = True
+			print message
+		else:
+			return die
 
 def time():
 	import time

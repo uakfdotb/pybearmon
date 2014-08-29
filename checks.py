@@ -1,3 +1,5 @@
+import util
+
 def extract(data, key, default):
 	if key in data:
 		return data[key]
@@ -5,6 +7,8 @@ def extract(data, key, default):
 		return default
 
 def run_check(name, data):
+	import checks
+
 	try:
 		return getattr(checks, name)(data)
 	except Exception as e:
@@ -32,7 +36,7 @@ def http_helper(data):
 	import httplib2
 
 	try:
-		handle = Http(timeout = extract(data, 'timeout', 10))
+		handle = httplib2.Http(timeout = float(extract(data, 'timeout', 10)))
 		resp, content = handle.request(data['url'], 'GET')
 		return {'status': 'success', 'code': resp.status, 'content': content}
 	except httplib2.HttpLib2Error as e:
@@ -47,13 +51,13 @@ def http_status(data):
 
 	if result['status'] == 'fail':
 		return result
-	elif result['code'] == data['status']:
+	elif str(result['code']) == data['status']:
 		return {'status': 'success'}
 	else:
-		return {'status': 'fail', 'message': "target [%s] returned unexpected status [%s], expected [%s]" % (data['url'], result['code'], data['status'])}
+		return {'status': 'fail', 'message': "target [%s] returned unexpected status [%s], expected [%s]" % (data['url'], str(result['code']), data['status'])}
 
-def http_ok($data):
-	data['status'] = 200
+def http_ok(data):
+	data['status'] = '200'
 	return http_status(data)
 
 def ssl_expire(data):
@@ -64,9 +68,9 @@ def ssl_expire(data):
 		util.die('checks.ssl_expire: missing hostname')
 
 	hostname = data['hostname']
-	port = extract(data, 'port', 443)
-	days = extract(data, 'days', 7)
-	timeout = extract(data, 'timeout', 10)
+	port = int(extract(data, 'port', 443))
+	days = int(extract(data, 'days', 7))
+	timeout = float(extract(data, 'timeout', 10))
 
 	import socket
 	from OpenSSL import SSL
@@ -86,17 +90,17 @@ def ssl_expire(data):
 	cert = ssl_sock.get_peer_certificate()
 
 	if 'notAfter' in cert:
-		 expire_date = datetime.strptime(cert['notAfter'], "%b %d %H:%M:%S %Y %Z")
-		 expire_in = expire_date - datetime.now()
+		expire_date = datetime.strptime(cert['notAfter'], "%b %d %H:%M:%S %Y %Z")
+		expire_in = expire_date - datetime.now()
 
 		if expire_in.days < days:
-			return {'status': 'fail', 'message': 'SSL certificate will expire in %d hours', (expire_in.hours,)}
+			return {'status': 'fail', 'message': 'SSL certificate will expire in %d hours' % (expire_in.hours,)}
  		else:
  			return {'status': 'success'}
 	else:
 		return {'status': 'fail', 'message': 'parsed SSL information missing notAfter'}
 
-def ping($data):
+def ping(data):
 	# keys: target
 	if 'target' not in data:
 		util.die('checks.ping: missing target')
@@ -111,14 +115,14 @@ def ping($data):
 	else:
 		return {'status': 'success'}
 
-def check_tcp_connect(data):
+def tcp_connect(data):
 	# keys: target, port; optional: timeout
 	if 'target' not in data or 'port' not in data:
-		util.die('check_tcp_connect: missing target or port')
+		util.die('checks.tcp_connect: missing target or port')
 
 	target = data['target']
-	port = data['port']
-	timeout = extract(data, 'timeout', 5)
+	port = int(data['port'])
+	timeout = float(extract(data, 'timeout', 5))
 
 	import socket
 	sock = socket.socket()
