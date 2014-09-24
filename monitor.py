@@ -7,6 +7,7 @@ import alerts
 import time
 import multiprocessing
 import threading
+import random
 
 recent_failures = set()
 recent_failures_lock = threading.Lock()
@@ -110,7 +111,7 @@ last_cleanup = 0
 
 while True:
 	safe_print("[monitor] sleeping")
-	time.sleep(config['sleep_interval'])
+	time.sleep(random.uniform(config['sleep_interval'] * 2 / 3, config['sleep_interval'] * 4 / 3))
 
 	if util.time() - last_cleanup >= 60000:
 		last_cleanup = util.time()
