@@ -5,10 +5,15 @@ class DB:
 	conn = None
 	db_lock = threading.Lock()
 
-	def connect(self):
+	def connect(self, reconnect = False):
 		from config import config
-		self.conn = MySQLdb.connect(host=config['db_host'], user=config['db_username'], passwd=config['db_password'], db=config['db_name'])
-		self.conn.autocommit(True)
+		try:
+			self.conn = MySQLdb.connect(host=config['db_host'], user=config['db_username'], passwd=config['db_password'], db=config['db_name'])
+			self.conn.autocommit(True)
+		except (AttributeError, MySQLdb.OperationalError) as e:
+			if not reconnect:
+				raise
+			# else ignore and return
 
 	def query(self, q, p = []):
 		with self.db_lock:
