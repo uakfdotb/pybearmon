@@ -3,7 +3,7 @@ import threading
 
 class DB:
 	conn = None
-	db_lock = threading.Lock()
+	db_lock = threading.RLock()
 
 	def connect(self, reconnect = False):
 		from config import config
