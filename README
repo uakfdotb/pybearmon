@@ -47,3 +47,8 @@ There are two steps to setting this up. You can do the first step without doing 
 
 * Run monitor.php on multiple slaves with the same database setup.
 * Configure your MySQL to run in clustered/HA mode.
+
+Authors
+-------
+
+* Favyen Bastani <fbastani@mit.edu>
