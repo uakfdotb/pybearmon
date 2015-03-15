@@ -33,6 +33,42 @@ class MonitorPool:
 	def queue(self, check_id, check_name, check_type, check_data, status, confirmations, lock_uid):
 		self.q.put((check_id, check_name, check_type, check_data, status, confirmations, lock_uid))
 
+	def handle_change(self, thread_name, check_id, check_name, lock_uid, status, check_result):
+		if status == 'offline':
+			updown = 'down'
+		elif status == 'online':
+			updown = 'up'
+
+		safe_print("[%s] ... confirmed, target is %s state now", (thread_name, status))
+		update_result = database.query("UPDATE checks SET status = %s, confirmations = 0, `lock` = '', last_checked = NOW() WHERE id = %s AND `lock` = %s", (status, check_id, lock_uid))
+
+		if update_result.rowcount == 1:
+			# we still had the lock at the point where status was toggled
+			# then, send the alert
+			alert_result = database.query("SELECT contacts.id, contacts.type, contacts.data FROM contacts, alerts WHERE contacts.id = alerts.contact_id AND alerts.check_id = %s AND alerts.type IN ('both', %s)", (check_id, updown))
+
+			for alert_row in alert_result.fetchall():
+				safe_print("[%s] ... alerting contact %d", (thread_name, alert_row['id']))
+				alert_func = getattr(alerts, alert_row['type'], None)
+
+				if not alert_func:
+					util.die("Invalid alert handler [%s]!" % (alert_row['type']))
+
+				# build context
+				context = {}
+				context['check_id'] = check_id
+				context['check_name'] = check_name
+				context['contact_id'] = alert_row['id']
+				context['title'] = "Check %s: %s" % (status, check_name)
+				context['status'] = status
+				context['updown'] = updown
+				context['message'] = check_result['message']
+
+				alert_func(util.decode(alert_row['data']), context)
+
+			# also add an event
+			database.query("INSERT INTO check_events (check_id, type) VALUES (%s, %s)", (check_id, updown))
+
 	def worker(self):
 		thread_name = threading.currentThread().getName()
 
@@ -47,7 +83,10 @@ class MonitorPool:
 			if not type(check_result) is dict or 'status' not in check_result:
 				util.die("[%s] bad check handler [%s]: returned non-dict or missing status" % (thread_name, check_type))
 			elif 'message' not in check_result:
-				check_result['message'] = "Check offline: %s" % (check_name)
+				if check_result['status'] == 'fail':
+					check_result['message'] = "Check offline: %s" % (check_name)
+				else:
+					check_result['message'] = "Check online: %s" % (check_name)
 
 			if check_result['status'] == 'fail':
 				safe_print("[%s] ... got failure!", (thread_name))
@@ -58,30 +97,7 @@ class MonitorPool:
 
 					if confirmations + 1 >= config['confirmations']:
 						# target has failed
-						safe_print("[%s] ... confirmed, target is offline state now", (thread_name))
-						update_result = database.query("UPDATE checks SET status = 'offline', confirmations = 0, `lock` = '', last_checked = NOW() WHERE id = %s AND `lock` = %s", (check_id, lock_uid))
-
-						if update_result.rowcount == 1:
-							# we still had the lock at the point where status was toggled to offline
-							# then, send the alert
-							alert_result = database.query("SELECT contacts.id, contacts.type, contacts.data FROM contacts, alerts WHERE contacts.id = alerts.contact_id AND alerts.check_id = %s", (check_id,))
-
-							for alert_row in alert_result.fetchall():
-								safe_print("[%s] ... alerting contact %d", (thread_name, alert_row['id']))
-								alert_func = getattr(alerts, alert_row['type'], None)
-
-								if not alert_func:
-									util.die("Invalid alert handler [%s]!" % (alert_row['type']))
-
-								# build context
-								context = {}
-								context['check_id'] = check_id
-								context['check_name'] = check_name
-								context['contact_id'] = alert_row['id']
-								context['title'] = "Check offline: %s" % (check_name)
-								context['message'] = check_result['message']
-
-								alert_func(util.decode(alert_row['data']), context)
+						self.handle_change(thread_name, check_id, check_name, lock_uid, 'offline', check_result)
 					else:
 						# increase confirmations
 						database.query("UPDATE checks SET confirmations = confirmations + 1, `lock` = '', last_checked = NOW() WHERE id = %s AND `lock` = %s", (check_id, lock_uid))
@@ -93,8 +109,7 @@ class MonitorPool:
 				if status == 'offline':
 					if confirmations + 1 >= config['confirmations']:
 						# target has come back online
-						safe_print("[%s] ... confirmed, target is online state now", (thread_name))
-						database.query("UPDATE checks SET status = 'online', confirmations = 0, `lock` = '', last_checked = NOW() WHERE id = %s AND `lock` = %s", (check_id, lock_uid))
+						self.handle_change(thread_name, check_id, check_name, lock_uid, 'online', check_result)
 					else:
 						# increase confirmations
 						database.query("UPDATE checks SET confirmations = confirmations + 1, `lock` = '', last_checked = NOW() WHERE id = %s AND `lock` = %s", (check_id, lock_uid))
@@ -102,8 +117,6 @@ class MonitorPool:
 					database.query("UPDATE checks SET confirmations = 0, `lock` = '', last_checked = NOW() WHERE id = %s AND `lock` = %s", (check_id, lock_uid))
 			else:
 				util.die("Check handler [%s] returned invalid status code [%s]!") % (check_type, check_result['status'])
-
-			database.query("INSERT INTO check_results (check_id, result) VALUES (%s, %s)", (check_id, check_result['status']))
 
 pool = MonitorPool()
 pool.start()
