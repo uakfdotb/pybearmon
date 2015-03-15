@@ -29,6 +29,8 @@ def http_contains(data):
 		return {'status': 'fail', 'message': "target [%s] does not contain string [%s]" % (data['url'], data['substring'])}
 
 def http_helper(data):
+	from config import config
+
 	# keys: url, timeout
 	if 'url' not in data:
 		util.die('checks.http_helper: missing url')
@@ -37,7 +39,7 @@ def http_helper(data):
 
 	try:
 		handle = httplib2.Http(timeout = float(extract(data, 'timeout', 10)))
-		resp, content = handle.request(data['url'], 'GET')
+		resp, content = handle.request(data['url'], 'GET', headers={'User-Agent': config['user_agent']})
 		return {'status': 'success', 'code': resp.status, 'content': content}
 	except httplib2.HttpLib2Error as e:
 		return {'status': 'fail', 'message': e.strerror}
@@ -62,7 +64,7 @@ def http_ok(data):
 
 def ssl_expire(data):
 	# keys: hostname, optional port (default 443), days (default 7), and timeout (default 10)
-	global config
+	from config import config
 
 	if 'hostname' not in data:
 		util.die('checks.ssl_expire: missing hostname')
