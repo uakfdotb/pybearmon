@@ -74,33 +74,31 @@ def ssl_expire(data):
 	days = int(extract(data, 'days', 7))
 	timeout = float(extract(data, 'timeout', 10))
 
-	import socket
-	from OpenSSL import SSL
+	import ssl
 	from datetime import datetime
+	import socket
 
-	ctx = SSL.Context(SSL.TLSv1_METHOD)
-	ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT, pyopenssl_check_callback)
-	ctx.load_verify_locations(config['cacerts_path'])
+	try:
+		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		sock.settimeout(timeout)
+		sock.connect((hostname, port))
+		ssl_sock = ssl.wrap_socket(sock, cert_reqs=ssl.CERT_REQUIRED, ca_certs='/etc/ssl/certs/ca-certificates.crt', ciphers=("HIGH:-aNULL:-eNULL:-PSK:RC4-SHA:RC4-MD5"))
+		cert = ssl_sock.getpeercert()
+		ssl_sock.close()
+	except ssl.SSLError as e:
+		return {'status': 'fail', 'message': 'SSL connection failure: %s' % (e.strerror)}
 
-	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	sock.connect((hostname, port))
-	ssl_sock = SSL.Connection(ctx, sock)
-	ssl_sock.set_connect_state()
-	ssl_sock.set_tlsext_host_name(hostname)
-	ssl_sock.do_handshake()
+	try:
+		expire_date = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
+	except:
+		return {'status': 'fail', 'message': 'Certificate has unknown date format: %s' % (cert['notAfter'])}
 
-	cert = ssl_sock.get_peer_certificate()
+	expire_in = expire_date - datetime.now()
 
-	if 'notAfter' in cert:
-		expire_date = datetime.strptime(cert['notAfter'], "%b %d %H:%M:%S %Y %Z")
-		expire_in = expire_date - datetime.now()
-
-		if expire_in.days < days:
-			return {'status': 'fail', 'message': 'SSL certificate will expire in %d hours' % (expire_in.hours,)}
- 		else:
- 			return {'status': 'success'}
+	if expire_in.days < days:
+		return {'status': 'fail', 'message': 'SSL certificate will expire in %d hours' % (expire_in.total_seconds() / 3600,)}
 	else:
-		return {'status': 'fail', 'message': 'parsed SSL information missing notAfter'}
+		return {'status': 'success'}
 
 def ping(data):
 	# keys: target
