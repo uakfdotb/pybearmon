@@ -41,6 +41,8 @@ def http_helper(data):
 		handle = httplib2.Http(timeout = float(extract(data, 'timeout', 10)))
 		resp, content = handle.request(data['url'], 'GET', headers={'User-Agent': config['user_agent']})
 		return {'status': 'success', 'code': resp.status, 'content': content}
+	except httplib2.RelativeURIError as e:
+		return {'status': 'fail', 'message': 'RelativeURIError (possibly invalid URI: %s)' % (data['url'])}
 	except httplib2.HttpLib2Error as e:
 		return {'status': 'fail', 'message': e.strerror}
 
