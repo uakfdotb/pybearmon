@@ -126,6 +126,7 @@ def tcp_connect(data):
 
 	import socket
 	sock = socket.socket()
+	sock.settimeout(timeout)
 	sock.connect((target, port))
 	sock.close()
 	return {'status': 'success'}
