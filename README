@@ -45,7 +45,7 @@ This way, if the source crashes, you don't get extraneous notifications.
 
 There are two steps to setting this up. You can do the first step without doing the second and get a decent system.
 
-* Run monitor.php on multiple slaves with the same database setup.
+* Run monitor.py on multiple slaves with the same database setup.
 * Configure your MySQL to run in clustered/HA mode.
 
 Authors
