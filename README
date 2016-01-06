@@ -15,7 +15,7 @@ Create a database from the schema defined in `install.sql`.
 Setup
 -----
 
-First, look at config.php and configure database, mail, and other settings.
+First, look at config.default.py. Configure database, mail, and other settings and save it as config.py.
 
 Define a check. The one below will make sure the URL contains the given substring.
 
