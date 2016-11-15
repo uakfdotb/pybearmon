@@ -98,8 +98,14 @@ def pushover(data, context):
 	data['token']: Application token
 	data['user']: User token
 	data['priority']: At what priority to send notification. https://pushover.net/api#priority
+	context['title']: used to craft notification message
+	context['message']: used to craft notification message
 	pushmessage: Prettier updown message for notification
 	'''
+	if 'token' not in data or 'user' not in data or 'priority' not in data:
+		util.die('alert_pushover: details missing!')
+		return
+	
 	if context['updown'] == 'down':
 		pushmessage = context['title'] + " - " + context['message']
 	elif context['updown'] == 'up':
