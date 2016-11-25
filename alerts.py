@@ -90,3 +90,34 @@ def http(data, context):
 
 	if result['status'] == 'fail' and 'message' in result:
 		print "alert_http: error: " + result['message']
+
+def pushover(data, context):
+	'''
+	Sends alert to Pushovers API.
+	
+	data['token']: Application token
+	data['user']: User token
+	data['priority']: At what priority to send notification. https://pushover.net/api#priority
+	context['title']: used to craft notification message
+	context['message']: used to craft notification message
+	pushmessage: Prettier updown message for notification
+	'''
+	if 'token' not in data or 'user' not in data or 'priority' not in data:
+		util.die('alert_pushover: details missing!')
+		return
+	
+	if context['updown'] == 'down':
+		pushmessage = context['title'] + " - " + context['message']
+	elif context['updown'] == 'up':
+		pushmessage = context['title']
+
+	import httplib, urllib
+	conn = httplib.HTTPSConnection("api.pushover.net:443")
+	conn.request("POST", "/1/messages.json",
+		urllib.urlencode({
+		"token": data['token'],
+		"user": data['user'],
+		"priority": data['priority'],
+		"message": pushmessage,
+		}), { "Content-type": "application/x-www-form-urlencoded" })
+	
